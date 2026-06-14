@@ -39,7 +39,7 @@ export default function MainLayout() {
         <div className="flex h-full flex-col">
           <div className="border-b border-hospital-line px-5 py-5">
             <div className="flex items-center gap-3">
-              <img className="h-14 w-14 rounded-2xl border border-hospital-line bg-white object-contain p-1" src="./nurse-logo.png" alt="Nursing logo" />
+              <img className="h-14 w-14 rounded-2xl border border-hospital-line bg-white object-contain p-1" src="/nurse-logo.png" alt="Nursing logo" />
               <div className="min-w-0">
                 <p className="font-prompt text-base font-bold leading-tight text-hospital-navy">Nursing Project</p>
                 <p className="font-prompt text-sm font-semibold text-hospital-teal">Management 2026</p>
@@ -98,7 +98,7 @@ export default function MainLayout() {
               <button className="btn-secondary px-3 lg:hidden" type="button" onClick={() => setOpen(true)} aria-label="เปิดเมนู">
                 <Menu size={20} />
               </button>
-              <img className="hidden h-12 w-12 rounded-2xl border border-hospital-line bg-white object-contain p-1 sm:block lg:hidden" src="./nurse-logo.png" alt="Nursing logo" />
+              <img className="hidden h-12 w-12 rounded-2xl border border-hospital-line bg-white object-contain p-1 sm:block lg:hidden" src="/nurse-logo.png" alt="Nursing logo" />
               <div>
                 <p className="font-prompt text-lg font-bold text-hospital-navy md:text-xl">บริหารโครงการ ภารกิจด้านการพยาบาล</p>
                 <p className="text-sm text-slate-500">โรงพยาบาลสมเด็จพระยุพราชสว่างแดนดิน · 2026</p>
