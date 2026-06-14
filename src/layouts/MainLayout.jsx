@@ -10,7 +10,8 @@ import {
   Users,
   FolderKanban
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAppStore } from '../store/useAppStore';
 
 const navItems = [
   { to: '/', label: 'Main Menu', icon: Home },
@@ -24,6 +25,13 @@ const navItems = [
 
 export default function MainLayout() {
   const [open, setOpen] = useState(false);
+  const { fetchData, loading, error } = useAppStore();
+
+  useEffect(() => {
+    // Clear old cached state from previous version key
+    localStorage.removeItem('npms-2026-state-v1');
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[290px_1fr]">
@@ -65,9 +73,17 @@ export default function MainLayout() {
             <div className="rounded-2xl bg-hospital-mist p-4">
               <div className="flex items-center gap-2 font-prompt text-sm font-bold text-hospital-navy">
                 <ClipboardList size={18} />
-                Google Sheets Migration
+                เชื่อมต่อ Google Sheets
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">โครงสร้างข้อมูลจำลอง 7 แท็บพร้อมเชื่อมต่อ API จริงในขั้นต่อไป</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">ข้อมูลเรียลไทม์จาก Google Apps Script API</p>
+              <button
+                type="button"
+                onClick={() => fetchData()}
+                disabled={loading}
+                className="mt-3 w-full rounded-xl bg-hospital-blue px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 transition"
+              >
+                {loading ? 'กำลังโหลด...' : '🔄 รีเฟรชข้อมูล'}
+              </button>
             </div>
           </div>
         </div>
@@ -95,6 +111,17 @@ export default function MainLayout() {
         </header>
 
         <main className="px-4 py-6 lg:px-8">
+          {loading && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-hospital-blue font-prompt font-semibold">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-hospital-blue border-t-transparent" />
+              กำลังดึงข้อมูลล่าสุดจาก Google Sheets...
+            </div>
+          )}
+          {error && (
+            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800 font-prompt">
+              ⚠️ <strong>เกิดข้อผิดพลาดในการดึงข้อมูล:</strong> {error} (กำลังใช้งานข้อมูลแบบ Local Cache แทน)
+            </div>
+          )}
           <Outlet />
         </main>
       </div>
