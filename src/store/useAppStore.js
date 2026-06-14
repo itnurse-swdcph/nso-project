@@ -1,104 +1,80 @@
 import { create } from 'zustand';
-import { seedProjects, seedTasks, seedUsers } from '../data/seedData';
 import { clampProgress, enrichTasks, uid } from '../utils/status';
 
-const STORAGE_KEY = 'npms-2026-state-v1';
-
-function loadInitialState() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        users: parsed.users || seedUsers,
-        projects: parsed.projects || seedProjects,
-        tasks: enrichTasks(parsed.tasks || seedTasks)
-      };
-    }
-  } catch (error) {
-    console.warn('Unable to load local state', error);
-  }
-
-  return {
-    users: seedUsers,
-    projects: seedProjects,
-    tasks: enrichTasks(seedTasks)
-  };
-}
-
-function persist(state) {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      users: state.users,
-      projects: state.projects,
-      tasks: state.tasks
-    })
-  );
-}
+const API_URL = 'https://script.google.com/macros/s/AKfycbwIEHwnP1hp0fwTB_Ix2IECDW-pAtAu7VdsPuUDKPHSdyuoBRvs71GiSsTJRf5RCHJB/exec';
 
 export const useAppStore = create((set, get) => ({
-  ...loadInitialState(),
+  // กำหนด State เริ่มต้นเป็น Array ว่าง
+  users: [],
+  projects: [],
+  tasks: [],
+  loading: false,
+  error: null,
+
+  // ฟังก์ชันดึงข้อมูลจาก API จริง
+  fetchData: async () => {
+    set({ loading: true, error: null });
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      set({
+        users: data.users || [],
+        projects: data.projects || [],
+        tasks: enrichTasks(data.tasks || []),
+        loading: false
+      });
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      set({ 
+        error: error.message || 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 
+        loading: false 
+      });
+    }
+  },
 
   refreshStatuses: () => {
-    set((state) => {
-      const next = { ...state, tasks: enrichTasks(state.tasks) };
-      persist(next);
-      return next;
-    });
+    set((state) => ({ ...state, tasks: enrichTasks(state.tasks) }));
   },
 
-  resetDemoData: () => {
-    const next = {
-      users: seedUsers,
-      projects: seedProjects,
-      tasks: enrichTasks(seedTasks)
-    };
-    persist(next);
-    set(next);
-  },
+  // --------------------------------------------------------
+  // CRUD Operations (ทำงานอัปเดต State บน Client เป็นหลัก)
+  // *หมายเหตุ: หากต้องการบันทึกลง Google Sheet ด้วย ต้องทำ API POST เพิ่มเติม
+  // --------------------------------------------------------
 
   createProject: (payload) => {
-    set((state) => {
-      const next = {
-        ...state,
-        projects: [
-          ...state.projects,
-          {
-            id: uid('PRJ'),
-            project_name: payload.project_name,
-            description: payload.description || '',
-            status: payload.status || 'ดำเนินการ',
-            created_at: payload.created_at || new Date().toISOString().slice(0, 10)
-          }
-        ]
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      projects: [
+        ...state.projects,
+        {
+          id: uid('PRJ'),
+          project_name: payload.project_name,
+          description: payload.description || '',
+          status: payload.status || 'ดำเนินการ',
+          created_at: payload.created_at || new Date().toISOString().slice(0, 10)
+        }
+      ]
+    }));
   },
 
   updateProject: (id, payload) => {
-    set((state) => {
-      const next = {
-        ...state,
-        projects: state.projects.map((project) => (project.id === id ? { ...project, ...payload } : project))
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      projects: state.projects.map((project) => (project.id === id ? { ...project, ...payload } : project))
+    }));
   },
 
   deleteProject: (id) => {
-    set((state) => {
-      const next = {
-        ...state,
-        projects: state.projects.filter((project) => project.id !== id),
-        tasks: state.tasks.filter((task) => task.project_id !== id)
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      projects: state.projects.filter((project) => project.id !== id),
+      tasks: state.tasks.filter((task) => task.project_id !== id)
+    }));
   },
 
   createTask: (payload) => {
@@ -113,84 +89,64 @@ export const useAppStore = create((set, get) => ({
         due_date: payload.due_date,
         status: payload.status || 'ยังไม่เริ่มงาน'
       };
-      const next = {
+      return {
         ...state,
         tasks: enrichTasks([...state.tasks, task])
       };
-      persist(next);
-      return next;
     });
   },
 
   updateTask: (id, payload) => {
-    set((state) => {
-      const next = {
-        ...state,
-        tasks: enrichTasks(
-          state.tasks.map((task) => (
-            task.id === id
-              ? { ...task, ...payload, progress_percentage: clampProgress(payload.progress_percentage ?? task.progress_percentage) }
-              : task
-          ))
-        )
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      tasks: enrichTasks(
+        state.tasks.map((task) => (
+          task.id === id
+            ? { ...task, ...payload, progress_percentage: clampProgress(payload.progress_percentage ?? task.progress_percentage) }
+            : task
+        ))
+      )
+    }));
   },
 
   deleteTask: (id) => {
-    set((state) => {
-      const next = {
-        ...state,
-        tasks: state.tasks.filter((task) => task.id !== id)
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      tasks: state.tasks.filter((task) => task.id !== id)
+    }));
   },
 
   createUser: (payload) => {
-    set((state) => {
-      const next = {
-        ...state,
-        users: [
-          ...state.users,
-          {
-            id: uid('USR'),
-            name: payload.name,
-            role: payload.role || '',
-            department: payload.department || '',
-            is_active: Boolean(payload.is_active)
-          }
-        ]
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      users: [
+        ...state.users,
+        {
+          id: uid('USR'),
+          name: payload.name,
+          role: payload.role || '',
+          department: payload.department || '',
+          is_active: Boolean(payload.is_active)
+        }
+      ]
+    }));
   },
 
   updateUser: (id, payload) => {
-    set((state) => {
-      const next = {
-        ...state,
-        users: state.users.map((user) => (user.id === id ? { ...user, ...payload, is_active: Boolean(payload.is_active) } : user))
-      };
-      persist(next);
-      return next;
-    });
+    set((state) => ({
+      ...state,
+      users: state.users.map((user) => (user.id === id ? { ...user, ...payload, is_active: Boolean(payload.is_active) } : user))
+    }));
   },
 
   deleteUser: (id) => {
     set((state) => {
       const fallbackUserId = get().users.find((user) => user.id !== id)?.id || '';
-      const next = {
+      return {
         ...state,
         users: state.users.filter((user) => user.id !== id),
         tasks: state.tasks.map((task) => (task.assignee_id === id ? { ...task, assignee_id: fallbackUserId } : task))
       };
-      persist(next);
-      return next;
     });
   }
 }));
